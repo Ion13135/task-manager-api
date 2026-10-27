@@ -12,13 +12,3 @@ def read_root():
 def health_check():
     """Health check endpoint - used to verify the server is running."""
     return {"status": "ok"}
-
-@app.get("/about")
-def about():
-    """About endpoint - returns app and author info"""
-    return {"app": "Task Manager API", "author": "Ion"}
-
-@app.get("/hello/{name}")
-def say_hello(name: str):
-    """Hello endpoint - greets by name."""
-    return {"message": f"Hello, {name}!"}
