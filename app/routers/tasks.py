@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import APIRouter, HTTPException, status
 
 from app.schemas import Task, TaskCreate, TaskUpdate
@@ -18,9 +20,12 @@ def get_task_or_404(task_id: int) -> Task:
 
 
 @router.get("/", response_model=list[Task])
-def list_tasks():
-    """Return all tasks."""
-    return list(tasks_db.values())
+def list_tasks(completed: Optional[bool] =None):
+    """Return all tasks, optionally filtered by completion status."""
+    tasks = list(tasks_db.values())
+    if completed is None:
+        return tasks
+    return [task for task in tasks if task.completed == completed]
 
 
 @router.post("/", response_model=Task, status_code=status.HTTP_201_CREATED)
