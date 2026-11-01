@@ -1,60 +1,66 @@
-from typing import Optional
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
+from app.database import get_db
+from app.models import TaskModel
 from app.schemas import Task, TaskCreate, TaskUpdate
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
-# Temporary in-memory "database" (we will replace it with a real DB in Lesson 3)
-tasks_db: dict[int, Task] = {}
-next_id = 1
+# Shortcut type: "a DB session injected by FastAPI"
+DbSession = Annotated[Session, Depends(get_db)]
 
 
-def get_task_or_404(task_id: int) -> Task:
+def get_task_or_404(db: Session, task_id: int) -> TaskModel:
     """Return the task or raise a 404 error if it does not exist."""
-    task = tasks_db.get(task_id)
+    task = db.get(TaskModel, task_id)
     if task is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
     return task
 
 
 @router.get("/", response_model=list[Task])
-def list_tasks(completed: Optional[bool] =None):
+def list_tasks(db: DbSession, completed: bool | None = None):
     """Return all tasks, optionally filtered by completion status."""
-    tasks = list(tasks_db.values())
-    if completed is None:
-        return tasks
-    return [task for task in tasks if task.completed == completed]
+    query = select(TaskModel).order_by(TaskModel.id)
+    if completed is not None:
+        query = query.where(TaskModel.completed == completed)
+    return db.scalars(query).all()
 
 
 @router.post("/", response_model=Task, status_code=status.HTTP_201_CREATED)
-def create_task(data: TaskCreate):
+def create_task(data: TaskCreate, db: DbSession):
     """Create a new task."""
-    global next_id
-    task = Task(id=next_id, **data.model_dump())
-    tasks_db[next_id] = task
-    next_id += 1
+    task = TaskModel(**data.model_dump())
+    db.add(task)
+    db.commit()
+    db.refresh(task)  # reload the object to get the generated id
     return task
 
 
 @router.get("/{task_id}", response_model=Task)
-def get_task(task_id: int):
+def get_task(task_id: int, db: DbSession):
     """Return a single task by id."""
-    return get_task_or_404(task_id)
+    return get_task_or_404(db, task_id)
 
 
 @router.patch("/{task_id}", response_model=Task)
-def update_task(task_id: int, data: TaskUpdate):
+def update_task(task_id: int, data: TaskUpdate, db: DbSession):
     """Partially update a task (only the fields sent by the client)."""
-    task = get_task_or_404(task_id)
-    updated = task.model_copy(update=data.model_dump(exclude_unset=True))
-    tasks_db[task_id] = updated
-    return updated
+    task = get_task_or_404(db, task_id)
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(task, field, value)
+    db.commit()
+    db.refresh(task)
+    return task
 
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_task(task_id: int):
+def delete_task(task_id: int, db: DbSession):
     """Delete a task."""
-    get_task_or_404(task_id)
-    del tasks_db[task_id]
+    task = get_task_or_404(db, task_id)
+    db.delete(task)
+    db.commit()

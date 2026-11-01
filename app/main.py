@@ -1,10 +1,15 @@
 from fastapi import FastAPI
 
+from app import models # noqa: F401  (import needed so tables are registered
+from app.database import Base, engine
 from app.routers import tasks
 
-app = FastAPI(title="Task Manager API", version="0.2.0")
 
-# Register the tasks router
+# Create all tables defined in models.py (does nothing if they already exist)
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI(title="Task Manager API", version="0.3.0")
+
 app.include_router(tasks.router)
 
 
