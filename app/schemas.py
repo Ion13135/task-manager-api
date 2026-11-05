@@ -1,3 +1,4 @@
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -26,3 +27,4 @@ class Task(BaseModel):
     description: str | None = None
     completed: bool = False
     priority: int = 1
+    created_at: datetime

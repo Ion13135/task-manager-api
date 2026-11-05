@@ -23,11 +23,13 @@ def get_task_or_404(db: Session, task_id: int) -> TaskModel:
 
 
 @router.get("/", response_model=list[Task])
-def list_tasks(db: DbSession, completed: bool | None = None):
+def list_tasks(db: DbSession, completed: bool | None = None,skip:int = 0, limit:int = 10):
     """Return all tasks, optionally filtered by completion status."""
     query = select(TaskModel).order_by(TaskModel.id)
     if completed is not None:
         query = query.where(TaskModel.completed == completed)
+    query = query.offset(skip).limit(limit)
+
     return db.scalars(query).all()
 
 
