@@ -1,16 +1,17 @@
 from fastapi import FastAPI
 
-from app import models # noqa: F401  (import needed so tables are registered
+from app import models  # noqa: F401  (import needed so tables are registered
 from app.database import Base, engine
-from app.routers import tasks
+from app.routers import tasks, users
 
-
-# Create all tables defined in models.py (does nothing if they already exist)
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Task Manager API", version="0.3.0")
+app = FastAPI(title="Task Manager API", version="0.4.0")
 
+app.include_router(users.router)
 app.include_router(tasks.router)
+
+# ... Keep the rest (/, /health, /about, /hello/{name}) exactly as it is ...
 
 
 @app.get("/")

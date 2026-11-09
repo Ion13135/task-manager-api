@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import TaskModel
+from app.models import TaskModel, UserModel
 from app.schemas import Task, TaskCreate, TaskUpdate
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -35,11 +35,15 @@ def list_tasks(db: DbSession, completed: bool | None = None,skip:int = 0, limit:
 
 @router.post("/", response_model=Task, status_code=status.HTTP_201_CREATED)
 def create_task(data: TaskCreate, db: DbSession):
-    """Create a new task."""
+    """Create a new task for an existing user."""
+    owner = db.get(UserModel, data.owner_id)
+    if owner is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found")
+
     task = TaskModel(**data.model_dump())
     db.add(task)
     db.commit()
-    db.refresh(task)  # reload the object to get the generated id
+    db.refresh(task)
     return task
 
 
