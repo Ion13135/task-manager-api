@@ -23,11 +23,22 @@ def get_user_or_404(db: Session, user_id: int) -> UserModel:
     return user
 
 
+@router.get("/", response_model=list[UserRead])
+def list_users(db: DbSession, skip: int = 0, limit: int = 10):
+    """Return all users with pagination."""
+    query = select(UserModel).order_by(UserModel.id).offset(skip).limit(limit)
+    return db.scalars(query).all()
+
+
 
 @router.post("/", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 def register_user(data: UserCreated, db: DbSession):
     """Register a new user (the password is stored hashed)."""
-    existing = db.scalar(select(UserModel).where(UserModel.email == data.email))
+
+    # Normalize email to lowercase
+    normalized_email = data.email.lower()
+
+    existing = db.scalar(select(UserModel).where(UserModel.email == normalized_email))
     if existing is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -35,7 +46,7 @@ def register_user(data: UserCreated, db: DbSession):
         )
 
 
-    user = UserModel(email=data.email, hashed_password=hash_password(data.password))
+    user = UserModel(email=normalized_email, hashed_password=hash_password(data.password))
     db.add(user)
     db.commit()
     db.refresh(user)
